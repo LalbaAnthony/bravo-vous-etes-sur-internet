@@ -1,4 +1,4 @@
 
-# Bravo, vous êtes sur internet.
+# Bravo, vous êtes sur Internet.
 
 Merci Thierry Lhermitte.
