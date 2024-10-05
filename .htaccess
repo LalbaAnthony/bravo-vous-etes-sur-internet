@@ -1,0 +1,14 @@
+# Prevent directory listing
+Options -Indexes
+
+# Prevent access to .htaccess
+<Files .htaccess>
+    order allow,deny
+    deny from all
+</Files>
+
+# Prevent access to .htpasswd
+<Files .htpasswd>
+    order allow,deny
+    deny from all
+</Files>
