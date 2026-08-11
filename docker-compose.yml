@@ -1,0 +1,70 @@
+# Two mutually exclusive profiles, one service each:
+#   docker compose --profile development up --build   -> app-dev  (Dockerfile.dev)
+#   docker compose --profile production  up -d        -> app-prod (Dockerfile.prod)
+#
+# Nothing starts without an explicit --profile, which is what makes it safe to
+# ship this single file to the production server.
+#
+# COMPOSE_PROJECT_NAME (exported by the deploy workflow) overrides `name` below.
+
+name: bravo-vous-etes-sur-internet
+
+services:
+  app-dev:
+    profiles: [development]
+    container_name: bravo-vous-etes-sur-internet-dev
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: bravo-vous-etes-sur-internet:dev
+    init: true
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: development
+      PORT: ${PORT:-3000}
+      # node-cron runs on container time; without this the 06:00 job fires at 06:00 UTC.
+      TZ: ${TZ:-Europe/Paris}
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    volumes:
+      # Hot reload: host sources shadow the ones baked into the image.
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./nodemon.json:/app/nodemon.json:ro
+      # Anonymous volume: keeps the container's Linux-built node_modules from
+      # being shadowed by the host directory.
+      - /app/node_modules
+
+  app-prod:
+    profiles: [production]
+    container_name: bravo-vous-etes-sur-internet-prod
+    # Pulled from the registry in production (IMAGE is exported by the deploy
+    # workflow). The build block stays so the exact prod image can be rebuilt
+    # locally with --build; `up` never builds when the image is already present.
+    image: ${IMAGE:-lalbaanthony/bravo-vous-etes-sur-internet:main}
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    init: true
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: ${PORT:-4545}
+      TZ: ${TZ:-Europe/Paris}
+    ports:
+      # Bound to loopback only: Apache is the sole entry point and reverse-proxies
+      # to 127.0.0.1:4545 (see apache.conf). Never expose this on 0.0.0.0.
+      - "127.0.0.1:${PORT:-4545}:${PORT:-4545}"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+

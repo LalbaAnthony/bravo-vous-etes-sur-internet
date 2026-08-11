@@ -1,0 +1,70 @@
+# syntax=docker/dockerfile:1
+#
+# Production image, multi-stage.
+# Final layer ships: compiled dist/, public/ (served by express.static), and
+# production node_modules only. No TypeScript toolchain, no sources.
+#
+# Path contract with the source code (do not break it):
+#   - app.ts serves        __dirname/../public   -> /app/public
+#   - server.ts loads      __dirname/../.env     -> /app/.env   (optional, env wins)
+
+ARG NODE_VERSION=24-alpine
+
+# ---------------------------------------------------------------------------
+# Stage 1 - full dependency tree (devDependencies included, tsc needs them)
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION} AS deps
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# ---------------------------------------------------------------------------
+# Stage 2 - TypeScript compilation
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION} AS build
+
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json tsconfig.json ./
+COPY src ./src
+RUN npm run build
+
+# ---------------------------------------------------------------------------
+# Stage 3 - runtime dependencies only
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION} AS prod-deps
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+# ---------------------------------------------------------------------------
+# Stage 4 - runtime
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION} AS runtime
+
+# PORT has a default so the container never falls back to a random port when
+# .env is missing (server.ts passes process.env.PORT straight to app.listen).
+ENV NODE_ENV=production \
+    PORT=4545
+
+WORKDIR /app
+
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=build     /app/dist         ./dist
+COPY public ./public
+COPY package.json ./
+
+# Writable state directory, owned by the unprivileged user.
+RUN mkdir -p /app/data && chown -R node:node /app/data
+
+USER node
+
+EXPOSE 4545
+
+# Node 24 ships a global fetch, so no curl/wget needed in the image.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4545)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+CMD ["node", "dist/server.js"]

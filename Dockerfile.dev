@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+#
+# Development image.
+# Source code is NOT baked in at runtime: docker-compose bind-mounts ./src, ./public
+# and ./data over this image so ts-node-dev can hot-reload on host edits.
+# The COPY below only exists so the image is usable standalone (docker run) too.
+
+ARG NODE_VERSION=24-alpine
+
+FROM node:${NODE_VERSION}
+
+ENV NODE_ENV=development \
+    PORT=3000
+
+WORKDIR /app
+
+# Dependency layer first: only invalidated when the manifests change.
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Source layer. Overridden by bind mounts under docker-compose.
+COPY . .
+
+EXPOSE 3000
+
+# Runs as root on purpose: bind-mounted host files (Windows/WSL/macOS) would
+# otherwise be unwritable by the unprivileged `node` user.
+CMD ["npm", "run", "dev"]

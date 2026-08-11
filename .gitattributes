@@ -1,0 +1,5 @@
+# Normalize line endings for all files
+* text=auto
+
+# Prevents automatic merging for certain files (e.g., package-lock.json, composer.lock)
+package-lock.json merge=ours
