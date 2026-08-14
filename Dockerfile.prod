@@ -47,7 +47,7 @@ FROM node:${NODE_VERSION} AS runtime
 # PORT has a default so the container never falls back to a random port when
 # .env is missing (server.ts passes process.env.PORT straight to app.listen).
 ENV NODE_ENV=production \
-    PORT=4545
+    PORT=3000
 
 WORKDIR /app
 
@@ -61,10 +61,10 @@ RUN mkdir -p /app/data && chown -R node:node /app/data
 
 USER node
 
-EXPOSE 4545
+EXPOSE 3000
 
 # Node 24 ships a global fetch, so no curl/wget needed in the image.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4545)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+    CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "dist/server.js"]

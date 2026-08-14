@@ -24,11 +24,12 @@ services:
         required: false
     environment:
       NODE_ENV: development
-      PORT: ${PORT:-3000}
+      # Fixed container-internal port; PORT below is the host-side port only.
+      PORT: 3000
       # node-cron runs on container time; without this the 06:00 job fires at 06:00 UTC.
-      TZ: ${TZ:-Europe/Paris}
+      TZ: Europe/Paris
     ports:
-      - "${PORT:-3000}:${PORT:-3000}"
+      - "${PORT}:3000"
     volumes:
       # Hot reload: host sources shadow the ones baked into the image.
       - ./src:/app/src
@@ -56,12 +57,13 @@ services:
         required: false
     environment:
       NODE_ENV: production
-      PORT: ${PORT:-4545}
-      TZ: ${TZ:-Europe/Paris}
+      # Fixed container-internal port; PORT below is the host-side port only.
+      PORT: 3000
+      TZ: Europe/Paris
     ports:
       # Bound to loopback only: Apache is the sole entry point and reverse-proxies
-      # to 127.0.0.1:4545 (see apache.conf). Never expose this on 0.0.0.0.
-      - "127.0.0.1:${PORT:-4545}:${PORT:-4545}"
+      # to 127.0.0.1:${PORT} (see apache.conf). Never expose this on 0.0.0.0.
+      - "127.0.0.1:${PORT}:3000"
     logging:
       driver: json-file
       options:

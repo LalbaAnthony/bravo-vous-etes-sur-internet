@@ -84,7 +84,6 @@ jobs:
           cat <<EOF > .env
           NODE_ENV=production
           PORT=${{ secrets.PORT }}
-          TZ=${{ vars.TZ || 'Europe/Paris' }}
           EOF
 
       - name: Copy deployment files
